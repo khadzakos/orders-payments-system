@@ -1,0 +1,143 @@
+services:
+  postgres_orders:
+    image: postgres:16-alpine
+    container_name: postgres_orders
+    environment:
+      POSTGRES_USER: ${ORDERS_DB_USER}
+      POSTGRES_PASSWORD: ${ORDERS_DB_PASSWORD}
+      POSTGRES_DB: ${ORDERS_DB_NAME}
+    volumes:
+      - orders_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "5433:5432"
+    networks:
+      - application_network
+
+  postgres_payments:
+    image: postgres:16-alpine
+    container_name: postgres_payments
+    environment:
+      POSTGRES_USER: ${PAYMENTS_DB_USER}
+      POSTGRES_PASSWORD: ${PAYMENTS_DB_PASSWORD}
+      POSTGRES_DB: ${PAYMENTS_DB_NAME}
+    volumes:
+      - payments_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "5434:5432"
+    networks:
+      - application_network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - application_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - application_network
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "80:80"
+    environment:
+      GATEWAY_PORT: 80
+      ORDER_SERVICE_HOST: http://order-service:8081
+      PAYMENTS_SERVICE_HOST: http://payments-service:8082
+    depends_on:
+      order-service:
+        condition: service_started
+      # payments-service:
+      #   condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - application_network
+
+  order-service:
+    build:
+      context: ./orders
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "8081:8081"
+    environment:
+      ORDERS_DB_HOST: postgres_orders
+      ORDERS_DB_PORT: 5432
+      ORDERS_DB_USER: ${ORDERS_DB_USER}
+      ORDERS_DB_PASSWORD: ${ORDERS_DB_PASSWORD}
+      ORDERS_DB_NAME: ${ORDERS_DB_NAME}
+      KAFKA_BROKER_URL: kafka:29092
+    depends_on:
+      postgres_orders:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - application_network
+  # payments-service:
+  #   build:
+  #     context: ./payments
+  #     dockerfile: Dockerfile
+  #   container_name: payments-service
+  #   ports:
+  #     - "8082:8082"
+  #   environment:
+  #     PAYMENTS_DB_HOST: postgres_payments
+  #     PAYMENTS_DB_PORT: 5432
+  #     PAYMENTS_DB_USER: ${PAYMENTS_DB_USER}
+  #     PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD}
+  #     PAYMENTS_DB_NAME: ${PAYMENTS_DB_NAME}
+  #     KAFKA_BROKER_URL: kafka:29092
+  #   depends_on:
+  #     postgres_payments:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_started
+  #   networks:
+  #     - application_network
+
+networks:
+  application_network:
+    driver: bridge
+
+volumes:
+  orders_db_data:
+  payments_db_data:
+  kafka_data:
