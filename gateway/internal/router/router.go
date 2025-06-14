@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 )
 
 func NewRouter(cfg *config.Config) (http.Handler, error) {
@@ -34,20 +35,30 @@ func NewRouter(cfg *config.Config) (http.Handler, error) {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	orderProxy := createProxy(ordersURL, "/orders")
-	paymentProxy := createProxy(paymentsURL, "")
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
-	r.Group(func(r chi.Router) {
-		r.Post("/users", paymentProxy.ServeHTTP)
-		r.Patch("/users/{id}", paymentProxy.ServeHTTP)
-		r.Get("/users/{id}", paymentProxy.ServeHTTP)
+	orderProxy := createProxy(ordersURL)
+	paymentProxy := createProxy(paymentsURL)
+
+	r.Route("/users", func(r chi.Router) {
+		r.Get("/", paymentProxy.ServeHTTP)
+		r.Post("/", paymentProxy.ServeHTTP)
+		r.Patch("/{id}", paymentProxy.ServeHTTP)
+		r.Get("/{id}", paymentProxy.ServeHTTP)
 	})
 
-	r.Group(func(r chi.Router) {
-		r.Post("/orders", orderProxy.ServeHTTP)
-		r.Get("/orders", orderProxy.ServeHTTP)
-		r.Get("/orders/{id}", orderProxy.ServeHTTP)
-		r.Get("/users/{id}/orders", orderProxy.ServeHTTP)
+	r.Route("/orders", func(r chi.Router) {
+		r.Post("/", orderProxy.ServeHTTP)
+		r.Get("/", orderProxy.ServeHTTP)
+		r.Get("/{id}", orderProxy.ServeHTTP)
+		r.Get("/user/{userID}", orderProxy.ServeHTTP)
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -58,18 +69,12 @@ func NewRouter(cfg *config.Config) (http.Handler, error) {
 	return r, nil
 }
 
-func createProxy(target *url.URL, pathPrefixToStrip string) http.Handler {
+func createProxy(target *url.URL) http.Handler {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	proxy.Director = func(req *http.Request) {
 		req.URL.Host = target.Host
 		req.URL.Scheme = target.Scheme
-		if pathPrefixToStrip != "" && strings.HasPrefix(req.URL.Path, pathPrefixToStrip) {
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, pathPrefixToStrip)
-			if req.URL.Path == "" {
-				req.URL.Path = "/"
-			}
-		}
 		req.RequestURI = req.URL.RequestURI()
 
 		if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
@@ -94,7 +99,6 @@ func createProxy(target *url.URL, pathPrefixToStrip string) http.Handler {
 
 	return proxy
 }
-
 func renderJSONError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

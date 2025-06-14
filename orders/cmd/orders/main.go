@@ -15,6 +15,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -23,10 +24,51 @@ import (
 	http_orders "orders/internal/handler/http/orders"
 	kafka_handler "orders/internal/handler/kafka"
 	"orders/internal/infrastructure/database"
-	"orders/internal/infrastructure/kafka"
+	kafka_infrastructure "orders/internal/infrastructure/kafka"
 	postgres_order_repo "orders/internal/repository/order_repo/postgres"
 	postgres_outbox_repo "orders/internal/repository/outbox_repo/postgres"
 )
+
+// Пойдет для учебного проекта, но лучше по-хорошему нужно было вынести это в инфру
+func ensureKafkaTopics(ctx context.Context, brokerURLs []string, topics []string, logger *zap.Logger) error {
+	conn, err := kafka.DialContext(ctx, "tcp", brokerURLs[0])
+	if err != nil {
+		return fmt.Errorf("failed to dial kafka broker for admin operations: %w", err)
+	}
+	defer conn.Close()
+
+	controller, err := conn.Controller()
+	if err != nil {
+		return fmt.Errorf("failed to get kafka controller: %w", err)
+	}
+	controllerConn, err := kafka.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", controller.Host, controller.Port))
+	if err != nil {
+		return fmt.Errorf("failed to dial kafka controller: %w", err)
+	}
+	defer controllerConn.Close()
+
+	topicConfigs := make([]kafka.TopicConfig, len(topics))
+	for i, topic := range topics {
+		topicConfigs[i] = kafka.TopicConfig{
+			Topic:             topic,
+			NumPartitions:     1,
+			ReplicationFactor: 1,
+		}
+	}
+
+	err = controllerConn.CreateTopics(topicConfigs...)
+	if err != nil {
+		if err == kafka.TopicAlreadyExists {
+			logger.Info("One or more Kafka topics already exist, skipping creation.")
+		} else {
+			return fmt.Errorf("failed to create Kafka topics: %w", err)
+		}
+	} else {
+		logger.Info("Kafka topics ensured successfully.", zap.Strings("topics", topics))
+	}
+
+	return nil
+}
 
 func main() {
 	cfg, err := config.LoadConfig()
@@ -96,7 +138,20 @@ func main() {
 	}
 	appLogger.Info("Database migrations completed successfully (or no new migrations).")
 
-	kafkaProducer, err := kafka.NewProducer(cfg.GetKafkaBrokers(), appLogger)
+	kafkaBrokers := cfg.GetKafkaBrokers()
+	requiredTopics := []string{
+		cfg.KafkaOrderEventsTopic,
+		cfg.KafkaPaymentStatusTopic,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err = ensureKafkaTopics(ctx, kafkaBrokers, requiredTopics, appLogger)
+	if err != nil {
+		appLogger.Fatal("Failed to ensure Kafka topics", zap.Error(err))
+	}
+
+	kafkaProducer, err := kafka_infrastructure.NewProducer(cfg.GetKafkaBrokers(), appLogger)
 	if err != nil {
 		appLogger.Fatal("Failed to create Kafka producer", zap.Error(err))
 	}
@@ -129,7 +184,7 @@ func main() {
 
 	paymentStatusConsumerHandler := kafka_handler.NewPaymentStatusConsumer(orderService, appLogger)
 	go func() {
-		err := kafka.StartConsumer(
+		err := kafka_infrastructure.StartConsumer(
 			cfg.GetKafkaBrokers(),
 			cfg.KafkaPaymentStatusTopic,
 			cfg.KafkaConsumerGroup,
@@ -166,15 +221,15 @@ func main() {
 			appLogger.Fatal("HTTP server failed", zap.Error(err))
 		}
 	}()
-	appLogger.Info("Order Service запущен", zap.String("address", serverAddr))
+	appLogger.Info("Order Service started", zap.String("address", serverAddr))
 
 	<-sigChan
 
-	appLogger.Info("Выполняется остановка Order Service...")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	appLogger.Info("Stopping Order Service...")
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
 		appLogger.Fatal("Order Service graceful shutdown failed", zap.Error(err))
 	}
-	appLogger.Info("Order Service остановлен.")
+	appLogger.Info("Order Service stopped.")
 }

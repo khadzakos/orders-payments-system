@@ -18,6 +18,7 @@ type Config struct {
 
 	KafkaURL                string `env:"KAFKA_BROKER_URL"`
 	KafkaPaymentStatusTopic string `env:"KAFKA_PAYMENT_STATUS_TOPIC"`
+	KafkaOrderEventsTopic   string `env:"KAFKA_ORDER_EVENTS_TOPIC"`
 	KafkaConsumerGroup      string `env:"KAFKA_CONSUMER_GROUP"`
 
 	OutboxPollInterval time.Duration `env:"OUTBOX_POLL_INTERVAL"`
@@ -37,6 +38,7 @@ func LoadConfig() (*Config, error) {
 	cfg.KafkaURL = getEnvOrDefault("KAFKA_BROKER_URL", "localhost:9092")
 
 	cfg.KafkaPaymentStatusTopic = getEnvOrDefault("KAFKA_PAYMENT_STATUS_TOPIC", "payment_status_updates")
+	cfg.KafkaOrderEventsTopic = getEnvOrDefault("KAFKA_ORDER_EVENTS_TOPIC", "order_payment_tasks")
 	cfg.KafkaConsumerGroup = getEnvOrDefault("KAFKA_CONSUMER_GROUP", "order-service-group")
 
 	outboxPollIntervalStr := getEnvOrDefault("OUTBOX_POLL_INTERVAL", "5s")
