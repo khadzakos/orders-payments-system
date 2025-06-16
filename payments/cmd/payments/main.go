@@ -180,7 +180,6 @@ func main() {
 
 	kafkaProducer := kafka_infra.NewProducer(
 		cfg.GetKafkaBrokers(),
-		cfg.KafkaPaymentStatusTopic,
 		appLogger.With(zap.String("component", "KafkaProducer")),
 	)
 	defer func() {
@@ -196,14 +195,13 @@ func main() {
 		db,
 		outboxRepository,
 		kafkaProducer,
-		cfg.KafkaPaymentStatusTopic, // Added topic
+		cfg.KafkaPaymentStatusTopic,
 		cfg.OutboxPollInterval,
 		cfg.OutboxPollTimeout,
 		appLogger.With(zap.String("component", "OutboxProcessor")),
 	)
 	appLogger.Info("Outbox Processor initialized.")
 
-	// Kafka Consumer for Order Events
 	orderCreatedHandler := kafka_handler.OrderCreatedMessageHandler(
 		paymentService,
 		appLogger.With(zap.String("component", "OrderCreatedHandler")),
@@ -212,8 +210,8 @@ func main() {
 	orderEventsConsumer := kafka_infra.NewConsumer(
 		cfg.GetKafkaBrokers(),
 		cfg.KafkaOrderEventsTopic,
-		"payments-order-events-group", // Consumer group ID
-		orderCreatedHandler,           // Pass the handler function directly
+		"payments-order-events-group",
+		orderCreatedHandler,
 		appLogger.With(zap.String("component", "OrderEventsConsumer")),
 	)
 	appLogger.Info("Order Events Kafka Consumer initialized.")
@@ -226,18 +224,15 @@ func main() {
 		}
 	}()
 
-	// Запуск Outbox Processor
 	go func() {
 		appLogger.Info("Starting Outbox Processor...")
 		outboxProcessor.Start(ctxMain)
 		appLogger.Info("Outbox Processor stopped.")
 	}()
 
-	// Start Kafka Consumer for Order Events
 	go func() {
 		appLogger.Info("Starting Order Events Kafka Consumer...")
 		if err := orderEventsConsumer.Consume(ctxMain); err != nil {
-			// Log error unless it's due to context cancellation (graceful shutdown)
 			if err != context.Canceled && err != context.DeadlineExceeded && err != kafka.ErrGroupClosed {
 				appLogger.Error("Order Events Kafka Consumer failed", zap.Error(err))
 			}
@@ -247,54 +242,38 @@ func main() {
 
 	// --- Graceful Shutdown ---
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM) // Ловим Ctrl+C или SIGTERM (от Docker/Kubernetes)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	<-sigChan // Блокируем main горутину до получения сигнала
+	<-sigChan
 	appLogger.Info("Shutting down application...")
 
-	// Отменяем главный контекст, чтобы все горутины начали завершаться
 	cancelMain()
 
-	// Даем горутинам время на завершение
-	// Создаем контекст с таймаутом для шатдауна HTTP-сервера и других очисток
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
 
-	// 1. Завершаем HTTP-сервер
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		appLogger.Error("HTTP server graceful shutdown failed", zap.Error(err))
 	} else {
 		appLogger.Info("HTTP server gracefully shut down.")
 	}
-
-	// 2. Завершаем Kafka Consumer (он должен завершиться через ctxMain)
-	// Добавляем небольшой таймаут, чтобы дождаться завершения горутины консьюмера
-	// The consumer's Consume method will return when ctxMain is canceled.
-	// We also explicitly close it to release resources if it has a Close method.
 	if err := orderEventsConsumer.Close(); err != nil {
 		appLogger.Error("Error closing Order Events Kafka Consumer", zap.Error(err))
 	} else {
 		appLogger.Info("Order Events Kafka Consumer closed.")
 	}
-	// Wait for the consumer goroutine to finish, relying on ctxMain cancellation
-	// This select block might be redundant if Close() is blocking or if ctxMain.Done() is sufficient
 	select {
-	case <-time.After(2 * time.Second): // Shorter timeout as Close() should be quick or ctxMain handles it
+	case <-time.After(2 * time.Second):
 		appLogger.Warn("Order Events Kafka Consumer goroutine might not have fully stopped after Close().")
 	case <-ctxMain.Done():
 		appLogger.Info("Order Events Kafka Consumer goroutine confirmed stopped via context.")
 	}
 
-	// 3. Завершаем Outbox Processor (он также должен завершиться через ctxMain)
-	// Аналогично консьюмеру, даем ему время завершиться.
-	// OutboxProcessor.Stop() не нужен, если Start() слушает ctx.Done()
 	select {
 	case <-time.After(5 * time.Second):
 		appLogger.Warn("Outbox Processor did not stop cleanly within 5 seconds.")
 	case <-ctxMain.Done():
 	}
-	// Если бы в Outbox Processor был отдельный метод Stop(), вызывали бы его здесь.
-	// Поскольку он слушает ctxMain.Done(), это достаточно.
 
 	appLogger.Info("Application gracefully shut down.")
 

@@ -89,7 +89,8 @@ function Orders() {
             <strong>ID:</strong> {order.id}, 
             <strong> Пользователь:</strong> {order.user_id}, 
             <strong> Сумма:</strong> {order.amount}, 
-            <strong> Статус:</strong> {order.status}
+            <strong> Описание:</strong> {order.description || 'Не указано'}, 
+            <strong> Статус:</strong> {order.status || 'Не указан'},
           </li>
         ))}
       </ul>

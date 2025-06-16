@@ -68,7 +68,7 @@ func (s *paymentService) ProcessOrderPayment(ctx context.Context, orderID string
 	}()
 
 	payment, err := s.processOrderPaymentTx(ctx, tx, orderID, userID, amount)
-	if err != nil {
+	if err != nil && err != domain.ErrAccountNotFound && err != domain.ErrInsufficientFunds {
 		s.logger.Error("Не удалось обработать платеж по заказу, выполняется откат транзакции", zap.String("order_id", orderID), zap.Error(err))
 		if rbErr := tx.Rollback(); rbErr != nil {
 			s.logger.Error("Не удалось откатить транзакцию", zap.String("order_id", orderID), zap.Error(rbErr))
@@ -111,6 +111,51 @@ func (s *paymentService) processOrderPaymentTx(ctx context.Context, tx *sql.Tx, 
 	}
 
 	deductionAmount := -amount
+	if err == domain.ErrAccountNotFound {
+		s.logger.Warn("Счет для пользователя не найден при обработке платежа", zap.Int64("user_id", userAccountID), zap.String("order_id", orderID))
+		paymentID := util.GenerateUUID()
+		failedPayment := &domain.Payment{
+			ID:        paymentID,
+			OrderID:   orderID,
+			UserID:    userID,
+			Amount:    amount,
+			Status:    domain.PaymentStatusFailed,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		if createErr := s.paymentRepo.CreateTx(ctx, tx, failedPayment); createErr != nil {
+			s.logger.Error("Не удалось создать запись о проваленном платеже (счет не найден)", zap.String("order_id", orderID), zap.Error(createErr))
+		}
+
+		failedPaymentTime := time.Now()
+		payloadBytes, err := outbox.PreparePaymentStatusUpdatePayload(
+			failedPayment.ID,
+			orderID,
+			userID,
+			amount,
+			domain.PaymentStatusFailed,
+			failedPaymentTime,
+			"account_not_found",
+		)
+		if err != nil {
+			s.logger.Error("Не удалось подготовить payload для outbox (счет не найден)", zap.String("order_id", orderID), zap.Error(err))
+		}
+
+		outboxMsg := &domain.OutboxMessage{
+			ID:          util.GenerateUUID(),
+			OrderID:     orderID,
+			OrderStatus: string(domain.PaymentStatusFailed),
+			Payload:     payloadBytes,
+			Status:      domain.OutboxStatusPending,
+			CreatedAt:   failedPaymentTime,
+		}
+		if outboxErr := s.outboxRepo.CreateMessageTx(ctx, tx, outboxMsg); outboxErr != nil {
+			s.logger.Error("Не удалось создать сообщение outbox для проваленного платежа (счет не найден)", zap.String("order_id", orderID), zap.Error(outboxErr))
+		}
+
+		return nil, domain.ErrAccountNotFound
+	}
+
 	if err = s.accountRepo.UpdateBalanceTx(ctx, tx, account.ID, deductionAmount); err != nil {
 		if err == domain.ErrInsufficientFunds {
 			s.logger.Warn("Недостаточно средств для платежа", zap.String("order_id", orderID), zap.Float64("amount", amount), zap.String("account_id", account.ID))
@@ -128,10 +173,9 @@ func (s *paymentService) processOrderPaymentTx(ctx context.Context, tx *sql.Tx, 
 				s.logger.Error("Не удалось создать запись о проваленном платеже", zap.String("order_id", orderID), zap.Error(createErr))
 			}
 
-			// Prepare payload for outbox message indicating failed payment
-			failedPaymentTime := time.Now() // Use consistent time for event
+			failedPaymentTime := time.Now()
 			payloadBytes, err := outbox.PreparePaymentStatusUpdatePayload(
-				failedPayment.ID, // Use the ID of the created failed payment record
+				failedPayment.ID,
 				orderID,
 				userID,
 				amount,
@@ -141,16 +185,15 @@ func (s *paymentService) processOrderPaymentTx(ctx context.Context, tx *sql.Tx, 
 			)
 			if err != nil {
 				s.logger.Error("Не удалось подготовить payload для outbox (проваленный платеж)", zap.String("order_id", orderID), zap.Error(err))
-				// Continue to attempt creating outbox message even if payload prep fails, maybe with generic error
 			}
 
 			outboxMsg := &domain.OutboxMessage{
 				ID:          util.GenerateUUID(),
 				OrderID:     orderID,
-				OrderStatus: string(domain.PaymentStatusFailed), // This might need adjustment based on how orders service interprets this
+				OrderStatus: string(domain.PaymentStatusFailed),
 				Payload:     payloadBytes,
 				Status:      domain.OutboxStatusPending,
-				CreatedAt:   failedPaymentTime, // Use consistent time
+				CreatedAt:   failedPaymentTime,
 			}
 			if outboxErr := s.outboxRepo.CreateMessageTx(ctx, tx, outboxMsg); outboxErr != nil {
 				s.logger.Error("Не удалось создать сообщение outbox для проваленного платежа", zap.String("order_id", orderID), zap.Error(outboxErr))
@@ -356,6 +399,24 @@ func (s *paymentService) ProcessIncomingOrderCreatedEvent(ctx context.Context, e
 	s.logger.Info("Сообщение inbox успешно записано", zap.String("event_id", eventID), zap.String("order_id", orderID))
 
 	payment, err := s.processOrderPaymentTx(ctx, tx, orderID, userID, amount)
+
+	if err == domain.ErrInsufficientFunds || err == domain.ErrAccountNotFound {
+		if err := s.inboxRepo.UpdateStatusTx(ctx, tx, eventID, domain.InboxStatusFailed); err != nil {
+			s.logger.Error("Не удалось обновить статус сообщения inbox на COMPLETED", zap.String("event_id", eventID), zap.Error(err))
+			if rbErr := tx.Rollback(); rbErr != nil {
+				s.logger.Error("Не удалось откатить транзакцию после ошибки обновления статуса inbox", zap.String("event_id", eventID), zap.Error(rbErr))
+			}
+			return fmt.Errorf("не удалось пометить событие %s как обработанное: %w", eventID, err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			s.logger.Error("Не удалось зафиксировать транзакцию для обработки inbox", zap.String("event_id", eventID), zap.Error(err))
+			return fmt.Errorf("не удалось зафиксировать транзакцию: %w", err)
+		}
+
+		return nil
+	}
+
 	if err != nil {
 		s.logger.Error("Не удалось обработать платеж из OrderCreatedEvent, помечаем inbox как проваленный", zap.String("event_id", eventID), zap.String("order_id", orderID), zap.Error(err))
 		if updateErr := s.inboxRepo.UpdateStatusTx(ctx, tx, eventID, domain.InboxStatusFailed); updateErr != nil {

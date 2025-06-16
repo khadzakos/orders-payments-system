@@ -36,10 +36,9 @@ func NewConsumer(brokers []string, topic, groupID string, handler MessageHandler
 		handler: handler,
 	}
 
-	return nil // This error is for the goroutine, not NewConsumer itself
+	return nil
 }
 
-// Consume starts the consumer loop. It blocks until the context is canceled or a fatal error occurs.
 func (c *Consumer) Consume(ctx context.Context) error {
 	c.logger.Info("Kafka consumer starting message consumption",
 		zap.String("topic", c.reader.Config().Topic),
@@ -47,7 +46,6 @@ func (c *Consumer) Consume(ctx context.Context) error {
 	)
 
 	for {
-		// Check if context is cancelled before fetching message
 		select {
 		case <-ctx.Done():
 			c.logger.Info("Context cancelled, stopping consumer.", zap.String("topic", c.reader.Config().Topic))
@@ -55,41 +53,36 @@ func (c *Consumer) Consume(ctx context.Context) error {
 		default:
 		}
 
-		// Use a shorter timeout for FetchMessage to allow more frequent checks of the parent context.
 		fetchCtx, cancelFetch := context.WithTimeout(ctx, 5*time.Second) // Use parent ctx for cancellation
 		m, err := c.reader.FetchMessage(fetchCtx)
 		cancelFetch()
 
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) { // Timeout, just continue to check parent context
+			if errors.Is(err, context.DeadlineExceeded) {
 				continue
 			}
-			if errors.Is(err, context.Canceled) || errors.Is(err, kafka.ErrGroupClosed) { // Parent context cancelled or reader closed
+			if errors.Is(err, context.Canceled) || errors.Is(err, kafka.ErrGroupClosed) {
 				c.logger.Info("Consumer stopping due to context cancellation or reader closure.", zap.Error(err), zap.String("topic", c.reader.Config().Topic))
 				return nil
 			}
 			c.logger.Error("Error fetching message from Kafka", zap.Error(err), zap.String("topic", c.reader.Config().Topic))
-			// Depending on the error, you might want to retry or exit.
-			// For simplicity, we'll continue, but in production, you might need more robust error handling.
-			time.Sleep(1 * time.Second) // Avoid busy-looping on persistent errors
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
-		handleCtx, cancelHandler := context.WithTimeout(context.Background(), 25*time.Second) // New context for handler
+		handleCtx, cancelHandler := context.WithTimeout(context.Background(), 25*time.Second)
 		if err := c.handler(handleCtx, m); err != nil {
 			c.logger.Error("Error handling Kafka message",
 				zap.String("topic", m.Topic),
 				zap.Int("partition", m.Partition),
 				zap.Int64("offset", m.Offset),
 				zap.Error(err))
-			// Decide if you want to commit or not based on the error.
-			// For now, we continue without committing if handler fails.
 			cancelHandler()
 			continue
 		}
 		cancelHandler()
 
-		commitCtx, cancelCommit := context.WithTimeout(context.Background(), 5*time.Second) // New context for commit
+		commitCtx, cancelCommit := context.WithTimeout(context.Background(), 5*time.Second)
 		if err := c.reader.CommitMessages(commitCtx, m); err != nil {
 			c.logger.Error("Failed to commit offset for message",
 				zap.String("topic", m.Topic),

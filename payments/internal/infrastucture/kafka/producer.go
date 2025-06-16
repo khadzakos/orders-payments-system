@@ -18,15 +18,9 @@ type KafkaProducer struct {
 	logger *zap.Logger
 }
 
-func NewProducer(brokers []string, _ string, logger *zap.Logger) *KafkaProducer {
-	// The topic parameter is no longer used to configure the writer directly,
-	// as the Produce method now accepts a topic argument.
-	// We keep it in the signature for now if other parts of the system expect it,
-	// but mark it as unused (underscore) to indicate it's not used in this function body.
-	// Alternatively, if no other part relies on this signature, it could be removed.
+func NewProducer(brokers []string, logger *zap.Logger) *KafkaProducer {
 	writer := kafka.NewWriter(kafka.WriterConfig{
 		Brokers:  brokers,
-		// Topic: topic, // Topic is now specified per message in Produce method
 		Balancer: &kafka.LeastBytes{},
 	})
 	return &KafkaProducer{writer: writer, logger: logger}

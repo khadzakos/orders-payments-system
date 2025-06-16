@@ -7,7 +7,7 @@ type PaymentStatus string
 const (
 	PaymentStatusNew       PaymentStatus = "NEW"
 	PaymentStatusPending   PaymentStatus = "PENDING"
-	PaymentStatusCompleted PaymentStatus = "COMPLETED"
+	PaymentStatusCompleted PaymentStatus = "SUCCESS"
 	PaymentStatusFailed    PaymentStatus = "FAILED"
 )
 
