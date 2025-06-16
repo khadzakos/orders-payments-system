@@ -28,11 +28,8 @@ Implementation of Payments Service and Orders Service — to ensure the stable o
    ``` bash
    http://localhost:5173
    ```
-5. Use Swagger to test the API:
-   ``` bash
-   http://localhost:80/api/v1/swagger
-   ```
-6. Stop the Docker containers:
+5. Use Postman Collection to test the API
+7. Stop the Docker containers:
    ```bash
    docker-compose down
    ```
