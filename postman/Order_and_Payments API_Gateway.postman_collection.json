@@ -77,26 +77,25 @@
 					"response": []
 				},
 				{
-					"name": "Get User Details",
+					"name": "Get User Balance",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:80/user/:id",
+							"raw": "http://localhost:80/users/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"
 							],
 							"port": "80",
 							"path": [
-								"user",
+								"users",
 								":id"
 							],
 							"variable": [
 								{
 									"key": "id",
-									"value": "1",
-									"description": "ID of the user to retrieve"
+									"value": "1"
 								}
 							]
 						},
@@ -192,22 +191,21 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:80/users/:id/orders",
+							"raw": "http://localhost:80/orders/user/:id",
 							"protocol": "http",
 							"host": [
 								"localhost"
 							],
 							"port": "80",
 							"path": [
-								"users",
-								":id",
-								"orders"
+								"orders",
+								"user",
+								":id"
 							],
 							"variable": [
 								{
 									"key": "id",
-									"value": "1",
-									"description": "ID of the user to retrieve orders for"
+									"value": "1"
 								}
 							]
 						},
