@@ -1,0 +1,228 @@
+{
+	"info": {
+		"_postman_id": "eb847d44-72bb-47c9-ba5d-5d6cd03d7afb",
+		"name": "Order and Payments API Gateway",
+		"description": "API Gateway for Order and Payments services.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "41705606"
+	},
+	"item": [
+		{
+			"name": "User Operations",
+			"item": [
+				{
+					"name": "Create New User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user_id\": 2,\n  \"balance\": 1234\n}"
+						},
+						"url": {
+							"raw": "http://localhost:80/users",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "80",
+							"path": [
+								"users"
+							]
+						},
+						"description": "Redirects to Payments Service to create a new user."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Balance",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"balance_change\": 300\n}"
+						},
+						"url": {
+							"raw": "http://localhost:80/users/:id",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "80",
+							"path": [
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "ID of the user to update"
+								}
+							]
+						},
+						"description": "Routes to Payments Service to update specific user details."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:80/user/:id",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "80",
+							"path": [
+								"user",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "ID of the user to retrieve"
+								}
+							]
+						},
+						"description": "Routes to Payments Service to retrieve details of a specific user."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Order Operations",
+			"item": [
+				{
+					"name": "Create New Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user_id\": \"1\",\n  \"amount\": 29.99,\n  \"description\": \"Summer sale item\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:80/orders",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "80",
+							"path": [
+								"orders"
+							]
+						},
+						"description": "Routes to Order Service to create a new order and initiate payment."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:80/orders",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "80",
+							"path": [
+								"orders"
+							]
+						},
+						"description": "Routes to Order Service to retrieve a list of all orders."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Order Details by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:80/orders/:id",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "80",
+							"path": [
+								"orders",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "27252a90-402b-47a7-9168-4b8935e6348c",
+									"description": "ID of the order to retrieve"
+								}
+							]
+						},
+						"description": "Routes to Order Service to retrieve details of a specific order."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Orders by User ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:80/users/:id/orders",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "80",
+							"path": [
+								"users",
+								":id",
+								"orders"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "ID of the user to retrieve orders for"
+								}
+							]
+						},
+						"description": "Routes to Order Service to retrieve a list of orders for a specific user."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:80",
+			"type": "string"
+		}
+	]
+}
