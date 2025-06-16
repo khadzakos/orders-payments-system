@@ -1,25 +1,30 @@
 package domain
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type InboxMessageStatus string
 
 const (
 	InboxStatusNew        InboxMessageStatus = "NEW"
 	InboxStatusProcessing InboxMessageStatus = "PROCESSING"
-	InboxStatusProcessed  InboxMessageStatus = "PROCESSED"
+	InboxStatusCompleted  InboxMessageStatus = "COMPLETED"
 	InboxStatusFailed     InboxMessageStatus = "FAILED"
 )
 
-// InboxMessage представляет запись в таблице Inbox для обеспечения exactly-once семантики.
+var (
+	ErrMessageAlreadyProcessed = fmt.Errorf("inbox message already processed")
+	ErrMessageAlreadyPending   = fmt.Errorf("inbox message already pending")
+)
+
+// InboxMessage представляет запись в таблице Inbox.
 type InboxMessage struct {
-	ID             string
-	KafkaTopic     string
-	KafkaPartition int
-	KafkaOffset    int64
-	ConsumerGroup  string
-	Payload        []byte
-	Status         InboxMessageStatus
-	ReceivedAt     time.Time
-	ProcessedAt    *time.Time
+	ID          string
+	OrderID     string
+	Payload     []byte
+	Status      InboxMessageStatus
+	ReceivedAt  time.Time
+	ProcessedAt *time.Time
 }

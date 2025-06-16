@@ -25,7 +25,7 @@ func LoadConfig() (*Config, error) {
 	}
 	cfg.GatewayPort = port
 
-	cfg.OrdersServiceURL = os.Getenv("ORDER_SERVICE_HOST")
+	cfg.OrdersServiceURL = os.Getenv("ORDERS_SERVICE_HOST")
 	if cfg.OrdersServiceURL == "" {
 		cfg.OrdersServiceURL = "http://localhost:8081"
 	}

@@ -48,7 +48,6 @@ func NewRouter(cfg *config.Config) (http.Handler, error) {
 	paymentProxy := createProxy(paymentsURL)
 
 	r.Route("/users", func(r chi.Router) {
-		r.Get("/", paymentProxy.ServeHTTP)
 		r.Post("/", paymentProxy.ServeHTTP)
 		r.Patch("/{id}", paymentProxy.ServeHTTP)
 		r.Get("/{id}", paymentProxy.ServeHTTP)

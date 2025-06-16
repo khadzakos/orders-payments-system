@@ -2,19 +2,11 @@ package accounts_repo
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-
 	"payments/internal/domain"
 )
 
-var (
-	ErrInsufficientFunds = fmt.Errorf("insufficient funds")
-	ErrAccountNotFound   = fmt.Errorf("account not found")
-)
-
 type AccountRepository interface {
-	GetAccountForUserTx(ctx context.Context, tx *sql.Tx, userID string) (*domain.Account, error)
-	UpdateBalanceTx(ctx context.Context, tx *sql.Tx, accountID string, amount float64) error
-	CreateAccountTx(ctx context.Context, tx *sql.Tx, account *domain.Account) error
+	CreateAccountTx(ctx context.Context, querier domain.Querier, account *domain.Account) error
+	GetAccountForUserTx(ctx context.Context, querier domain.Querier, userID int64) (*domain.Account, error)
+	UpdateBalanceTx(ctx context.Context, querier domain.Querier, accountID string, amount float64) error
 }

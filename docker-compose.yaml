@@ -78,23 +78,23 @@ services:
       - "80:80"
     environment:
       GATEWAY_PORT: 80
-      ORDER_SERVICE_HOST: http://order-service:8081
+      ORDERS_SERVICE_HOST: http://orders-service:8081
       PAYMENTS_SERVICE_HOST: http://payments-service:8082
     depends_on:
-      order-service:
+      orders-service:
         condition: service_started
-      # payments-service:
-      #   condition: service_started
+      payments-service:
+        condition: service_started
       kafka:
         condition: service_started
     networks:
       - application_network
 
-  order-service:
+  orders-service:
     build:
       context: ./orders
       dockerfile: Dockerfile
-    container_name: order-service
+    container_name: orders-service
     ports:
       - "8081:8081"
     environment:
@@ -111,27 +111,28 @@ services:
         condition: service_started
     networks:
       - application_network
-  # payments-service:
-  #   build:
-  #     context: ./payments
-  #     dockerfile: Dockerfile
-  #   container_name: payments-service
-  #   ports:
-  #     - "8082:8082"
-  #   environment:
-  #     PAYMENTS_DB_HOST: postgres_payments
-  #     PAYMENTS_DB_PORT: 5432
-  #     PAYMENTS_DB_USER: ${PAYMENTS_DB_USER}
-  #     PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD}
-  #     PAYMENTS_DB_NAME: ${PAYMENTS_DB_NAME}
-  #     KAFKA_BROKER_URL: kafka:29092
-  #   depends_on:
-  #     postgres_payments:
-  #       condition: service_healthy
-  #     kafka:
-  #       condition: service_started
-  #   networks:
-  #     - application_network
+      
+  payments-service:
+    build:
+      context: ./payments
+      dockerfile: Dockerfile
+    container_name: payments-service
+    ports:
+      - "8082:8082"
+    environment:
+      PAYMENTS_DB_HOST: postgres_payments
+      PAYMENTS_DB_PORT: 5432
+      PAYMENTS_DB_USER: ${PAYMENTS_DB_USER}
+      PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD}
+      PAYMENTS_DB_NAME: ${PAYMENTS_DB_NAME}
+      KAFKA_BROKER_URL: kafka:29092
+    depends_on:
+      postgres_payments:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - application_network
 
 networks:
   application_network:

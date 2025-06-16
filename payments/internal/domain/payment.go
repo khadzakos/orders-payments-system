@@ -7,19 +7,16 @@ type PaymentStatus string
 const (
 	PaymentStatusNew       PaymentStatus = "NEW"
 	PaymentStatusPending   PaymentStatus = "PENDING"
-	PaymentStatusProcessed PaymentStatus = "PROCESSED"
+	PaymentStatusCompleted PaymentStatus = "COMPLETED"
 	PaymentStatusFailed    PaymentStatus = "FAILED"
-	PaymentStatusRefunded  PaymentStatus = "REFUNDED"
 )
 
 type Payment struct {
-	ID            string
-	OrderID       string
-	UserID        string
-	Amount        float64
-	Currency      string
-	Status        PaymentStatus
-	TransactionID string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID        string
+	OrderID   string
+	UserID    int64
+	Amount    float64
+	Status    PaymentStatus
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
