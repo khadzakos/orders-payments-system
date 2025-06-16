@@ -22,7 +22,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"user_id\": 2,\n  \"balance\": 1234\n}"
+							"raw": "{\n  \"user_id\": 1,\n  \"balance\": 1400\n}"
 						},
 						"url": {
 							"raw": "http://localhost:80/users",
@@ -120,7 +120,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"user_id\": \"1\",\n  \"amount\": 29.99,\n  \"description\": \"Summer sale item\"\n}"
+							"raw": "{\n  \"user_id\": 1,\n  \"amount\": 1000,\n  \"description\": \"Summer sale item\"\n}"
 						},
 						"url": {
 							"raw": "http://localhost:80/orders",
@@ -176,7 +176,7 @@
 							"variable": [
 								{
 									"key": "id",
-									"value": "27252a90-402b-47a7-9168-4b8935e6348c",
+									"value": "06688d11-aa8f-4f9d-bfd5-4b794feb503c",
 									"description": "ID of the order to retrieve"
 								}
 							]
