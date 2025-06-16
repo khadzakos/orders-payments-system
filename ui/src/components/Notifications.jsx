@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
-// TODO: Написать сервис для уведомлений через WebSocket
+// TODO: Написать компонент Notifications, который будет подключаться к WebSocket-серверу и отображать уведомления о статусах заказов.
 
-// <-- Убедитесь, что это правильный URL вашего WebSocket-сервиса
-// Это должен быть ОТДЕЛЬНЫЙ сервис, не API Gateway
 const WEBSOCKET_URL = 'ws://localhost:8082/ws/orders'; 
 
 function Notifications() {

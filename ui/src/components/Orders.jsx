@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const API_GATEWAY_URL = 'http://localhost:80';
+const API_GATEWAY_URL = import.meta.env.REACT_APP_API_GATEWAY_URL || 'http://localhost:80';
 
 function Orders() {
   const [orders, setOrders] = useState([]);

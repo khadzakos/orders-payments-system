@@ -134,6 +134,21 @@ services:
     networks:
       - application_network
 
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: ui
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_GATEWAY_URL: http://api-gateway:80
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - application_network
+
 networks:
   application_network:
     driver: bridge
