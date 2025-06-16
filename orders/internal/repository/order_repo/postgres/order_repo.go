@@ -89,26 +89,26 @@ func (r *pgOrderRepository) GetOrderByID(ctx context.Context, id string) (*domai
 	return order, nil
 }
 
-func (r *pgOrderRepository) GetOrdersByUserID(ctx context.Context, userID string) ([]*domain.Order, error) {
+func (r *pgOrderRepository) GetOrdersByUserID(ctx context.Context, userID int64) ([]*domain.Order, error) {
 	var orders []*domain.Order
 	query := `SELECT id, user_id, amount, description, status, created_at, updated_at FROM orders WHERE user_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
-		r.logger.Error("Failed to query orders for user", zap.String("user_id", userID), zap.Error(err))
-		return nil, fmt.Errorf("failed to get orders by user ID %s: %w", userID, err)
+		r.logger.Error("Failed to query orders for user", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, fmt.Errorf("failed to get orders by user ID %d: %w", userID, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		order := &domain.Order{}
 		if err := rows.Scan(&order.ID, &order.UserID, &order.Amount, &order.Description, &order.Status, &order.CreatedAt, &order.UpdatedAt); err != nil {
-			r.logger.Error("Failed to scan row for user orders", zap.String("user_id", userID), zap.Error(err))
+			r.logger.Error("Failed to scan row for user orders", zap.Int64("user_id", userID), zap.Error(err))
 			return nil, fmt.Errorf("failed to scan order row: %w", err)
 		}
 		orders = append(orders, order)
 	}
 	if err = rows.Err(); err != nil {
-		r.logger.Error("Rows error for user orders", zap.String("user_id", userID), zap.Error(err))
+		r.logger.Error("Rows error for user orders", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 	return orders, nil

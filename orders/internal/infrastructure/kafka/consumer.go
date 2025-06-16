@@ -12,7 +12,7 @@ import (
 
 type MessageHandler func(ctx context.Context, message []byte) error
 
-func StartConsumer(brokers []string, topic, groupID string, handler MessageHandler, l *zap.Logger) error { // Изменен тип на *zap.Logger
+func StartConsumer(brokers []string, topic, groupID string, handler MessageHandler, l *zap.Logger) error {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        brokers,
 		Topic:          topic,
@@ -70,7 +70,7 @@ func StartConsumer(brokers []string, topic, groupID string, handler MessageHandl
 	return nil
 }
 
-func CloseConsumer(reader *kafka.Reader, l *zap.Logger) error { // Изменен тип на *zap.Logger
+func CloseConsumer(reader *kafka.Reader, l *zap.Logger) error {
 	if err := reader.Close(); err != nil {
 		l.Error("Failed to close Kafka consumer", zap.Error(err))
 		return fmt.Errorf("failed to close Kafka consumer: %w", err)

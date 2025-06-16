@@ -25,7 +25,7 @@ var (
 type OrderService interface {
 	CreateOrder(ctx context.Context, req *CreateOrderRequest) (*OrderResponse, error)
 	GetOrder(ctx context.Context, orderID string) (*OrderResponse, error)
-	GetOrdersByUserID(ctx context.Context, userID string) ([]*OrderResponse, error)
+	GetOrdersByUserID(ctx context.Context, userID int64) ([]*OrderResponse, error)
 	GetAllOrders(ctx context.Context) ([]*OrderResponse, error)
 	HandlePaymentStatusUpdate(ctx context.Context, event *PaymentStatusEvent) error
 	ProcessOutbox(ctx context.Context) error
@@ -104,10 +104,10 @@ func (s *orderService) GetOrder(ctx context.Context, orderID string) (*OrderResp
 	return mapOrderToResponse(order), nil
 }
 
-func (s *orderService) GetOrdersByUserID(ctx context.Context, userID string) ([]*OrderResponse, error) {
+func (s *orderService) GetOrdersByUserID(ctx context.Context, userID int64) ([]*OrderResponse, error) {
 	orders, err := s.orderRepo.GetOrdersByUserID(ctx, userID)
 	if err != nil {
-		s.logger.Error("Failed to get orders for user from repository", zap.String("user_id", userID), zap.Error(err))
+		s.logger.Error("Failed to get orders for user from repository", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, errors.New("internal server error")
 	}
 	return mapOrdersToResponse(orders), nil

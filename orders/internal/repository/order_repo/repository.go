@@ -10,7 +10,7 @@ type OrderRepository interface {
 	CreateOrder(ctx context.Context, order *domain.Order) error
 	CreateOrderAndOutboxMessage(ctx context.Context, order *domain.Order, msg *outbox_repo.OutboxMessage) error
 	GetOrderByID(ctx context.Context, id string) (*domain.Order, error)
-	GetOrdersByUserID(ctx context.Context, userID string) ([]*domain.Order, error)
+	GetOrdersByUserID(ctx context.Context, userID int64) ([]*domain.Order, error)
 	GetAllOrders(ctx context.Context) ([]*domain.Order, error)
 	UpdateOrder(ctx context.Context, order *domain.Order) error
 }

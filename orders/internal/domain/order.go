@@ -16,7 +16,7 @@ const (
 
 type Order struct {
 	ID          string
-	UserID      string
+	UserID      int64
 	Amount      float64
 	Description string
 	Status      OrderStatus
@@ -24,8 +24,8 @@ type Order struct {
 	UpdatedAt   time.Time
 }
 
-func NewOrder(id, userID, description string, amount float64) (*Order, error) {
-	if id == "" || userID == "" || amount <= 0 {
+func NewOrder(id string, userID int64, description string, amount float64) (*Order, error) {
+	if id == "" || amount <= 0 || userID <= 0 {
 		return nil, errors.New("invalid order data")
 	}
 	now := time.Now()

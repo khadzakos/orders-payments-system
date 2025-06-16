@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -70,16 +71,24 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OrderHandler) GetOrdersByUserID(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "userID")
-	if userID == "" {
+	userIDStr := chi.URLParam(r, "userID")
+
+	if userIDStr == "" {
 		h.logger.Warn("User ID is missing in GetOrdersByUserID request")
 		http.Error(w, "User ID is required", http.StatusBadRequest)
 		return
 	}
 
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		h.logger.Warn("Invalid User ID in GetOrdersByUserID request", zap.Error(err))
+		http.Error(w, "Invalid User ID", http.StatusBadRequest)
+		return
+	}
+
 	res, err := h.service.GetOrdersByUserID(r.Context(), userID)
 	if err != nil {
-		h.logger.Error("Error getting orders for user", zap.String("user_id", userID), zap.Error(err))
+		h.logger.Error("Error getting orders for user", zap.Int64("user_id", userID), zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
