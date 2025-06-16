@@ -26,7 +26,7 @@ Implementation of Payments Service and Orders Service — to ensure the stable o
    ```
 4. Use UI to try the application:
    ``` bash
-   http://localhost:5173
+   http://localhost:3000
    ```
 5. Use Postman Collection to test the API
 7. Stop the Docker containers:
