@@ -69,4 +69,7 @@ Implementation of Payments Service and Orders Service — to ensure the stable o
 
 В папке `postman` находится коллекция Postman для тестирования API. Тесты к приложению можно найти в соответвующих модулях в файлах с пометкой test.
 
+TODO:
+Планируется добавить push-уведомления через websockets(на ui есть соответствующее окно, однако, пока оно ничего не выводит).
+
 Каждый сервис имеет свой Dockerfile, сборка и запуск осуществляется через Docker Compose.
